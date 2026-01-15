@@ -1,5 +1,8 @@
 # this is excercie 2 
 
-print("hello learners ")
+print("hello mother fucker  ")
+
+
+
 
 
