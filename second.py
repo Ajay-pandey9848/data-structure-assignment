@@ -1,8 +1,11 @@
-# this is excercie 2 
+import math
 
-print("hello dear teacher  ")
+a = int(input())
+b = int(input())
 
-
-
-
-
+print(f"{a} + {b} is {a + b}")
+print(f"{a} - {b} is {a - b}")
+print(f"{a} * {b} is {a * b}")
+print(f"{a} / {b} is {a / b}")
+print(f"{a} % {b} is {a % b}")
+print(f"{a} ^ {b} is {a ** b}")
