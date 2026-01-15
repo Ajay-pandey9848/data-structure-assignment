@@ -1,6 +1,6 @@
 # this is excercie 2 
 
-print("hello mother fucker  ")
+print("hello dear teacher  ")
 
 
 
