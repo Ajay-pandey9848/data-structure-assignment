@@ -1,291 +1,144 @@
-from __future__ import annotations
-import ctypes
+# CHAPTER 6 EXERCISE 3
+'''
+URL Shortener Simulator Exercise
 
-class ReservedMemory():
+Create a mini URL shortener like a simplified TinyURL.
+
+Requirements
+
+- A long URL should get a short code (for example: "a1b2c3")
+- If the same URL is shortened again, return the same code
+- If a collision happens (same code for different URL), resolve it
+- Be able to:
+    - shorten a URL
+    - retrieve the original URL from a short code
+    - track how many times a short code was used
+
+Hint!
+Use hashlib (built-in Python module)
+Store:
+    code -> url
+    url -> code
+    code -> click_count
+
+'''
+
+
+# Here's a base where you can start! Implement the TODO's
+
+import hashlib
+
+class URLShortener:
     """
-    A class to reserve and handle a contigous area of memory. The
-    constructor needs the size of the memory area (in bytes) to be
-    reserved.
-    """
-    def __init__(self, size: int) -> None:
-        """
-        Initialize object allocating a memory area of given size
-        """
-        if not isinstance(size, int):
-            raise(TypeError('Memory size must be a positive integer > 0!'))
-        if not 1 <= size <= 65536:
-            raise(ValueError('Reserved memory size must be between 1 and 65536 bytes!'))
-        
-        self._reserved_memory = ctypes.create_string_buffer(size)
+    Mini URL shortener.
 
-    def __len__(self) -> int:
-        return len(self._reserved_memory)
+    Store:
+    - code_to_url   : short_code -> long_url
+    - url_to_code   : long_url -> short_code
+    - click_counts  : short_code -> int
 
-    def __repr__(self) -> str:
-        """
-        Custom representation of the reserved memory area
-        """
-        l = len(self._reserved_memory)
-        plural = 's' if l>1 else ''
-        str_repr = f"[{', '.join(str(ord(i)) for i in self._reserved_memory)}]"
-        return f"ReservedMemory ({l} byte{plural}): {str_repr}"
-
-    def copy(self, mem_source:ReservedMemory, count:int=None, source_index:int=0, destination_index:int=0) -> None:
-        """
-        Copy the content of another ReservedMemory object (mem_source)
-        to this object's memory area. By default the whole source memory
-        area is copied to the start of this object's memory area.
-        
-        Parameters:
-        - mem_source: ReservedMemory source object (mandatory)
-        - count: How many bytes or positions to copy.
-                 Optional. Default: Source size - source_index
-                 If not provided, copy from the beginning or source_index
-                 until the end of source.
-        - source_index: Source's start index or from where to copy the
-                        content.
-                        Optional. Default: 0
-        - destination_index: Destination's start index or where to copy
-                             the content.
-                             Optional. Default: 0
-
-        Usage example:
-        # Copy source to the start of destination
-        destination.copy(source)
-
-        # Copy only 5 memory positions of source
-        destination.copy(source, count=5)
-        # or
-        destination.copy(source, 5)
-        
-        # Copy source to destination starting at index 10
-        destination.copy(source, destination_index=10)
-
-        # Copy the first 5 memory positions of source to destination's index 10
-        destination.copy(source, count=5, destination_index=10)
-
-        # Copy 5 memory positions from source index 7 to destination's
-        # index 10
-        destination.copy(source, count=5, source_index=7, destination_index=10)
-        # or
-        destination.copy(source, 5, 7, 10)
-
-        Copy area can't fall outside the bounds of the destination's
-        memory area.
-        """
-        
-        if not isinstance(mem_source, ReservedMemory):
-            return TypeError('Source object must be a ReservedMemory object')
-        
-        if count is None:
-            count = len(mem_source._reserved_memory) - source_index
-        elif not isinstance(count, int):
-            return TypeError('Count must be a positive integer > 0')
-        elif count <= 0:
-            return ValueError('Count must be a positive integer > 0')
-        
-        if not isinstance(source_index, int):
-            return TypeError('Source index must be a positive integer >= 0')
-        elif 0 > source_index >= len(mem_source._reserved_memory):
-            return IndexError('Source index out of bounds!')
-
-        if not isinstance(destination_index, int):
-            return TypeError('Destination index must be a positive integer >= 0')
-        elif 0 > destination_index >= len(self._reserved_memory):
-            return IndexError('Destination index out of bounds!')
-
-        if count > len(self._reserved_memory):
-            return IndexError('Source is bigger than destination!')
-        elif source_index + count > len(mem_source._reserved_memory):
-            return IndexError('Source copy area out of bounds!')
-        elif destination_index + count > len(self._reserved_memory):
-            return IndexError('Destination copy area out of bounds!')
-
-        self._reserved_memory[destination_index:destination_index+count] = mem_source._reserved_memory[source_index:source_index+count]
-
-    def __getitem__(self, k:int) -> int:
-        """
-        Return value at index k
-        """
-        if not isinstance(k, int):
-            raise TypeError('Index must be a positive integer >= 0')
-        elif not 0 <= k < len(self._reserved_memory):
-            raise IndexError('Index is out of bounds!')
-        
-        return ord(self._reserved_memory[k])
-
-    def __setitem__(self, k:int, val:int) -> None:
-        """
-        set value at index k with val
-        """
-        if not isinstance(k, int):
-            raise TypeError('Index must be a positive integer >= 0')
-        elif not (0 <= k < len(self._reserved_memory)):
-            raise IndexError('Index is out of bounds!')
-        
-        self._reserved_memory[k] = val
-
-class IntArray():
-    """
-    A class to implement an Array Data Structure that accepts integer values
-    between -(2**(n-1)) and (2**(n-1))-1 (being n the number of bits per element).
-    By default, element size is 2 bytes (16 bits), so accepted values go
-    from -(2**15) to (2**15)-1, that is from -32768 to 32767. 
-    Python does not have a internal type with these characteristics, so values
-    are accepted as normal Python int type and then converted to be stored.
-
-    IntArray uses static arrays to hold the values, but allows to expand or
-    shrunk the array internally copying the values to a new static array.
-
-    Parameters (IntArray creation):
-    - bytes_per_element: How many bytes per element should be reserved. 
-
-    Supported methods:
-    - Array creation
-    - Append: Insert at the end
-    - Pop: Delete from the end
+    Collision rule:
+    - If generated code already exists for another URL,
+      generate a new one using an extra value (counter).
     """
 
-    def __init__(self, bytes_per_element:int = 2) -> None:
-        self._resmem = None
-        self._size = 0  # Logical size
-        self._bytes_per_element = bytes_per_element
-        self._shift_val = 2**((self._bytes_per_element * 8)-1)
-        self._min_val = -self._shift_val
-        self._max_val = self._shift_val - 1
+    def __init__(self):
+        # TODO: initialize dictionaries
+        self.code_to_url = {}
+        self.url_to_code = {}
+        self.click_counts = {}
 
-    def __len__(self) -> int:
-        return self._size
+    def _make_code(self, url, extra=""):
+        """
+        Create a short code using hashing.
 
-    def __iter__(self):
-        self._iter_index = 0
-        return self
+        HINT 1 (recommended):
+            import hashlib
+            digest = hashlib.md5((url + extra).encode()).hexdigest()
+            return digest[:6]
 
-    def __next__(self) -> int:
-        if self._iter_index < self._size:
-            self._iter_index += 1
-            return self.__getitem__(self._iter_index-1)
+        HINT 2 (simpler beginner option):
+            Use Python's built-in hash(), but note:
+            hash() values can differ between runs.
+        """
+        # TODO: implement code generation
+        digest = hashlib.md5((url + extra).encode()).hexdigest()
+
+        return digest[:6]
+
+    def shorten(self, url):
+        """
+        Return a short code for the URL.
+
+        Rules:
+        - If URL already shortened, return existing code
+        - Otherwise generate code
+        - Resolve collisions if code belongs to a different URL
+        - Save mappings + click count = 0
+        """
+        # TODO: implement
+        if url in self.url_to_code:
+            return self.url_to_code[url]
         else:
-            raise StopIteration
+            code = self._make_code(url)
+            counter = 0
+            while True:
+                if code not in self.code_to_url:
+                    break
+                elif code in self.code_to_url and self.code_to_url[code] == url:
+                    break
+                else:
+                    counter += 1
+                    code = self._make_code(url,str(counter))
+                    
 
-    def __repr__(self) -> str:
+            self.url_to_code[url] =  code
+            self.code_to_url[code] = url
+            self.click_counts[code] = 0
+            return code
+
+    def open_url(self, code):
         """
-        Custom representation of the IntArray
+        Return original URL and increase click count.
+        Return None if code not found.
         """
-        if not self._resmem:
-            return "Empty IntArray"
-        l = self._size
-        plural = 's' if l>1 else ''
-        str_repr = f"[{', '.join(str(v) for v in self)}]"
-        return f"IntArray ({l} element{plural}): {str_repr}"
-
-    def __setitem__(self, k:int, val:int) -> None:
-        """
-        Set value at index k with val.
-        """
-        if not isinstance(val, int) or not self._min_val <= val <= self._max_val:
-            raise TypeError(f'Value must be an integer between {self._min_val} and {self._max_val}')
-
-        # Convert or shift the value to be suitable to be stored.
-        # Value to be stored must be in the positive range from 0 to (2**bits_per_element)-1
-        # For 2 bytes that is from 0 to 65535
-        val_to_store = val + self._shift_val
-        # Store the bytes of the value in Little-endian (https://en.wikipedia.org/wiki/Endianness)    
-        for byte_index in range(self._bytes_per_element):
-            self._resmem[k*self._bytes_per_element+byte_index] = (val_to_store >> (8*byte_index)) & 255
-
-    def __getitem__(self, k:int) -> int:
-        """
-        Return value at index k
-        """
-
-        # Read stored bytes in Little-endian and restore original value
-        stored_val = 0
-        for byte_index in range(self._bytes_per_element):
-            stored_val |= self._resmem[k*self._bytes_per_element+byte_index] << (8*byte_index)
-        return (stored_val - self._shift_val)
-
-    def append(self, val: int) -> None:
-        """
-        Append an element to the end of the array
-        """
-        if not isinstance(val, int) or not self._min_val <= val <= self._max_val:
-            raise TypeError('Value must be an integer between {self._min_val} and {self._max_val}')
-        
-        # Update array's size
-        self._size += 1
-
-        # Reserve a new memory area with the new size.
-        # It is _bytes_per_element bigger than the current one
-        new_resmem = ReservedMemory(self._size*self._bytes_per_element)
-
-        # Copy the old reserved memory area (if there was one)
-        if self._resmem:
-            new_resmem.copy(self._resmem)
-
-        # The new created reserved memory area will be the one to be used
-        # from now on
-        self._resmem = new_resmem
-
-        # Store the new value at the end of the array
-        self.__setitem__(self._size-1, val)
-
-    def pop(self) -> int:
-            def search(self, value):
-        """
-        Search method for the array
-
-        Parameters:
-        - 'value': value to search
-
-        Returns:
-          First index position where the value is found or -1 if not found
-        """
-        for i in range(self._size):
-            if self.__getitem__(i) == value:
-                return i
-        return -1
-
-        """
-        Remove an element from the end of the array and return its value
-        """
-        # Elements can not be removed from empty arrays
-        if self._size == 0:
+        # TODO: implement
+        if code in self.code_to_url:
+            url = self.code_to_url[code]
+            self.click_counts[code] +=1
+            return url
+        else:
             return None
 
-        # Get the last element's value
-        val = self.__getitem__(self._size-1)
-        
-        # Decrease the size of the array
-        self._size -= 1
+    def get_stats(self, code):
+        """
+        Return a dictionary with:
+        { "code": ..., "url": ..., "clicks": ... }
 
-        # Find out the need for reserved memory
-        if self._size > 0:
-            # if new size is still bigger than 0
-            # reserve a new memory area with the new size.
-            # It is _bytes_per_element smaller than the current one
-            new_resmem = ReservedMemory(self._size*self._bytes_per_element)
-            # And copy the old memory area (except last element)
-            new_resmem.copy(self._resmem, count=self._size*self._bytes_per_element)
+        Return None if code not found.
+        """
+        # TODO: implement
+        if code in self.code_to_url:
+            return {"code" : code , "url" : self.code_to_url[code] ,"clicks" : self.click_counts[code]}
         else:
-            # If new size is 0, there is no need to reserve memory for it
-            new_resmem = None
+            return None
 
-        # Make the new memory area value the current one
-        self._resmem = new_resmem
 
-        # Return the last element's value that was stored at the beginning
-        return val
-    
-    def search(self, value):
-        """
-        Search method for the array
 
-        Parameters:
-        - 'value': value to search
 
-        Returns:
-          First index position where the value is found or -1 if not found
-        """
-        # YOUR CODE HERE. REPLACE THE NEXT LINE OF CODE IF NECESSARY.
-        return
+# FOR TESTING:
+
+shortener = URLShortener()
+
+url1 = "https://example.com/products/usb-cable"
+url2 = "https://example.com/about"
+url3 = "https://example.com/products/usb-cable"  # same as url1
+
+# TODO: Uncomment after implementing methods
+code1 = shortener.shorten(url1)
+code2 = shortener.shorten(url2)
+code3 = shortener.shorten(url3)
+print("Codes:", code1, code2, code3)  # code1 and code3 should match
+print("Open code1:", shortener.open_url(code1))
+print("Open code1 again:", shortener.open_url(code1))
+print("Stats code1:", shortener.get_stats(code1))
